@@ -167,6 +167,46 @@ export class OrderService {
       }
     }
   }
+
+  async cancelItem(itemId: number, userId: number, userRole: string) {
+    if (!['CAIXA', 'GERENTE', 'DONO', 'ADMIN'].includes(userRole)) {
+      throw new AppError('Insufficient permissions', 403)
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const item = await tx.pedidoItem.findUnique({
+        where: { id: itemId },
+        include: { produto: true, pedido: { include: { comanda: true } } }
+      })
+
+      if (!item) throw new AppError('Item not found', 404)
+      
+      if (item.status === 'CANCELADO') {
+          throw new AppError('Item already cancelled', 400)
+      }
+
+      // Update item status
+      await tx.pedidoItem.update({
+        where: { id: itemId },
+        data: { status: 'CANCELADO' }
+      })
+
+      // Update comanda total
+      const totalReduction = item.produto.preco * item.quantidade
+      await tx.comanda.update({
+        where: { id: item.pedido.comandaId },
+        data: { total: { decrement: totalReduction } }
+      })
+      
+      return { mesaId: item.pedido.comanda.mesaId }
+    })
+
+    // Notify via socket
+    const io = getIO()
+    io.emit('table:updated', { mesaId: result.mesaId })
+
+    return { success: true }
+  }
 }
 
 export const orderService = new OrderService()

@@ -26,4 +26,16 @@ router.post('/', validate(createOrderSchema), async (req: AuthRequest, res, next
   }
 })
 
+router.delete('/items/:id', async (req: AuthRequest, res, next) => {
+  try {
+    const itemId = Number(req.params.id)
+    const { userId, role } = req.user!
+    
+    await orderService.cancelItem(itemId, userId, role)
+    res.json({ success: true })
+  } catch (error) {
+    next(error)
+  }
+})
+
 export default router
