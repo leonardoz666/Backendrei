@@ -12,8 +12,8 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
     return
   }
   const session = verifyToken(token)
-  if (!session) {
-    res.status(401).json({ error: 'Unauthorized' })
+  if (!session || !session.userId) {
+    res.status(401).json({ error: 'Unauthorized - Invalid Session' })
     return
   }
   req.user = session

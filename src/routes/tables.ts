@@ -130,7 +130,12 @@ router.post('/:id/open', async (req, res) => {
     const { id } = req.params
     const mesaId = Number(id)
     const userId = (req as any).user.userId
-    
+
+    if (!userId) {
+        res.status(401).json({ error: 'User ID not found in session' })
+        return
+    }
+
     const existingComanda = await prisma.comanda.findFirst({
       where: { mesaId, status: 'ABERTA' }
     })
