@@ -320,4 +320,84 @@ router.post('/:id/close', requireRole(['ADMIN', 'DONO', 'GERENTE', 'CAIXA']), as
   }
 })
 
+router.post('/:id/transfer', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { targetTableId } = req.body
+    const sourceTableId = Number(id)
+    const targetId = Number(targetTableId)
+
+    if (!targetId) {
+      res.status(400).json({ error: 'Target table ID is required' })
+      return
+    }
+
+    // Find source table and open comanda
+    const sourceTable = await prisma.mesa.findUnique({
+      where: { id: sourceTableId },
+      include: {
+        comandas: {
+          where: { status: 'ABERTA' }
+        }
+      }
+    })
+
+    if (!sourceTable) {
+      res.status(404).json({ error: 'Source table not found' })
+      return
+    }
+
+    if (sourceTable.comandas.length === 0) {
+      res.status(400).json({ error: 'Source table has no open comanda' })
+      return
+    }
+
+    const comanda = sourceTable.comandas[0]
+
+    // Find target table
+    const targetTable = await prisma.mesa.findUnique({
+      where: { id: targetId },
+      include: {
+        comandas: {
+          where: { status: 'ABERTA' }
+        }
+      }
+    })
+
+    if (!targetTable) {
+      res.status(404).json({ error: 'Target table not found' })
+      return
+    }
+
+    if (targetTable.comandas.length > 0) {
+      res.status(400).json({ error: 'Target table is already occupied' })
+      return
+    }
+
+    // Perform transfer
+    await prisma.$transaction([
+      // Update source table to LIVRE
+      prisma.mesa.update({
+        where: { id: sourceTableId },
+        data: { status: 'LIVRE' }
+      }),
+      // Update target table to OCUPADA
+      prisma.mesa.update({
+        where: { id: targetId },
+        data: { status: 'OCUPADA' }
+      }),
+      // Update comanda to point to target table
+      prisma.comanda.update({
+        where: { id: comanda.id },
+        data: { mesaId: targetId }
+      })
+    ])
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Error transferring table:', error)
+    res.status(500).json({ error: 'Error transferring table' })
+  }
+})
+
 export default router
