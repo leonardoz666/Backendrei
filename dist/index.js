@@ -24,6 +24,9 @@ app.use((0, cors_1.default)({
 }));
 app.use(express_1.default.json());
 app.use((0, cookie_parser_1.default)());
+app.get('/', (req, res) => {
+    res.json({ message: 'API Rei do Pirão is running', timestamp: new Date() });
+});
 app.use('/auth', auth_1.default);
 app.use('/users', users_1.default);
 app.use('/products', products_1.default);
