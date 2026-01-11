@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../lib/prisma'
 import { authenticate, requireRole } from '../middleware/auth'
 import { z } from 'zod'
+import { printerService } from '../services/PrinterService'
 
 const router = Router()
 router.use(authenticate)
@@ -44,6 +45,30 @@ router.put('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error updating printer:', error)
     res.status(500).json({ error: 'Error updating printer' })
+  }
+})
+
+// Test printer
+router.post('/:id/test', async (req, res) => {
+  try {
+    const { id } = req.params
+    const printer = await prisma.printerConfig.findUnique({ where: { id: Number(id) } })
+    
+    if (!printer) {
+      res.status(404).json({ error: 'Printer not found' })
+      return
+    }
+
+    const success = await printerService.testPrinter(printer.ip, printer.port)
+    
+    if (success) {
+      res.json({ message: 'Teste enviado com sucesso!' })
+    } else {
+      res.status(500).json({ error: 'Falha ao conectar com a impressora' })
+    }
+  } catch (error) {
+    console.error('Error testing printer:', error)
+    res.status(500).json({ error: 'Erro ao testar impressora' })
   }
 })
 

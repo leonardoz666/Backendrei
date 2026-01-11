@@ -11,6 +11,8 @@ import ordersRoutes from './routes/orders'
 import kitchenRoutes from './routes/kitchen'
 import tablesRoutes from './routes/tables'
 import printersRoutes from './routes/printers'
+import { errorHandler } from './middleware/errorHandler'
+import logger from './lib/logger'
 
 dotenv.config()
 
@@ -25,6 +27,7 @@ app.use(express.json())
 app.use(cookieParser())
 
 app.get('/', (req, res) => {
+  logger.info('Health check request')
   res.json({ message: 'API Rei do Pirão is running', timestamp: new Date() })
 })
 
@@ -37,11 +40,8 @@ app.use('/kitchen', kitchenRoutes)
 app.use('/tables', tablesRoutes)
 app.use('/printers', printersRoutes)
 
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('Global error handler:', err)
-  res.status(500).json({ error: 'Internal Server Error', details: err.message })
-})
+app.use(errorHandler)
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
+  logger.info(`Server running on http://localhost:${PORT}`)
 })

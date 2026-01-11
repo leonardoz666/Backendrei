@@ -42,6 +42,36 @@ class PrinterService {
     })
   }
 
+  async testPrinter(ip: string, port: number) {
+    try {
+      console.log(`[PRINTER] Testando conexão com ${ip}:${port}...`)
+      const printer = await this.getPrinter(ip, port)
+      
+      const isConnected = await printer.isPrinterConnected()
+      if (!isConnected) {
+        console.warn(`[PRINTER] Impressora ${ip} não respondeu ao teste.`)
+        return false
+      }
+
+      printer.alignCenter()
+      printer.bold(true)
+      printer.println("TESTE DE IMPRESSÃO")
+      printer.println("REI DO PIRÃO")
+      printer.newLine()
+      printer.println("Se você está lendo isso,")
+      printer.println("a impressora está configurada corretamente!")
+      printer.newLine()
+      printer.println(new Date().toLocaleString('pt-BR'))
+      printer.cut()
+      
+      await printer.execute()
+      return true
+    } catch (error) {
+      console.error(`[PRINTER] Erro no teste de impressão:`, error)
+      return false
+    }
+  }
+
   async printOrderTicket(sector: 'COZINHA' | 'BAR', data: OrderTicketData) {
     const config = await prisma.printerConfig.findUnique({
       where: { setor: sector }
