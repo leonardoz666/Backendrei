@@ -27,5 +27,3 @@ router.post('/', validate(createOrderSchema), async (req: AuthRequest, res, next
 })
 
 export default router
-
-export default router
