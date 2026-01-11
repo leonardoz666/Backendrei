@@ -6,3 +6,4 @@ combined.log
 error.log
 coverage
 .DS_Store
+combined.log
