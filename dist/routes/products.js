@@ -21,24 +21,29 @@ router.get('/', async (req, res) => {
     }
 });
 // Create product (Admin/Dono only)
-router.post('/', (0, auth_1.requireRole)(['ADMIN', 'DONO']), async (req, res) => {
+router.post('/', (0, auth_1.requireRole)(['ADMIN', 'DONO']), upload_1.upload.single('foto'), async (req, res) => {
     try {
-        const { nome, preco, categoriaId, ativo, foto, tipoOpcao, sabores, isDrink, favorito } = req.body;
+        const { nome, preco, categoriaId, ativo, tipoOpcao, sabores, isDrink, isFood, favorito } = req.body;
         if (!nome) {
             res.status(400).json({ error: 'Nome do produto é obrigatório' });
             return;
+        }
+        let foto = req.body.foto;
+        if (req.file) {
+            foto = `/uploads/${req.file.filename}`;
         }
         const product = await prisma_1.prisma.produto.create({
             data: {
                 nome,
                 preco: Number(preco) || 0,
                 categoriaId: categoriaId ? Number(categoriaId) : undefined,
-                ativo: ativo ?? true,
+                ativo: ativo === 'true' || ativo === true,
                 foto,
                 tipoOpcao: tipoOpcao || 'padrao',
-                sabores: typeof sabores === 'object' ? JSON.stringify(sabores) : sabores,
-                isDrink: !!isDrink,
-                favorito: !!favorito
+                sabores: typeof sabores === 'string' && sabores.startsWith('[') ? sabores : (typeof sabores === 'object' ? JSON.stringify(sabores) : sabores),
+                isDrink: isDrink === 'true' || isDrink === true,
+                isFood: isFood === undefined ? true : (isFood === 'true' || isFood === true),
+                favorito: favorito === 'true' || favorito === true
             },
             include: { categoria: true }
         });
@@ -60,6 +65,7 @@ router.put('/:id', (0, auth_1.requireRole)(['ADMIN', 'DONO']), upload_1.upload.s
         // Parse boolean fields
         const ativo = req.body.ativo === 'true' || req.body.ativo === true;
         const isDrink = req.body.isDrink === 'true' || req.body.isDrink === true;
+        const isFood = req.body.isFood === undefined ? undefined : (req.body.isFood === 'true' || req.body.isFood === true);
         const favorito = req.body.favorito === 'true' || req.body.favorito === true;
         let foto = req.body.foto;
         if (req.file) {
@@ -76,6 +82,7 @@ router.put('/:id', (0, auth_1.requireRole)(['ADMIN', 'DONO']), upload_1.upload.s
                 tipoOpcao,
                 sabores: typeof sabores === 'string' && sabores.startsWith('[') ? sabores : (typeof sabores === 'object' ? JSON.stringify(sabores) : sabores),
                 isDrink,
+                isFood,
                 favorito
             },
             include: { categoria: true }

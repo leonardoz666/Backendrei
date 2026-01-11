@@ -6,6 +6,39 @@ const auth_1 = require("../middleware/auth");
 const PrinterService_1 = require("../services/PrinterService");
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate);
+// Create table (Admin/Dono only)
+router.post('/', (0, auth_1.requireRole)(['ADMIN', 'DONO']), async (req, res) => {
+    try {
+        let { numero } = req.body;
+        if (numero) {
+            // Check if table number already exists
+            const existing = await prisma_1.prisma.mesa.findUnique({
+                where: { numero: Number(numero) }
+            });
+            if (existing) {
+                res.status(409).json({ error: 'Mesa já existe' });
+                return;
+            }
+        }
+        else {
+            // Auto-increment fallback
+            const highestMesa = await prisma_1.prisma.mesa.findFirst({
+                orderBy: { numero: 'desc' }
+            });
+            numero = (highestMesa?.numero || 0) + 1;
+        }
+        const mesa = await prisma_1.prisma.mesa.create({
+            data: {
+                numero: Number(numero),
+                status: 'LIVRE'
+            }
+        });
+        res.json(mesa);
+    }
+    catch {
+        res.status(500).json({ error: 'Error creating table' });
+    }
+});
 router.get('/', async (req, res) => {
     try {
         const tables = await prisma_1.prisma.mesa.findMany({
@@ -30,7 +63,7 @@ router.get('/', async (req, res) => {
 });
 router.get('/my/opened', async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user.userId;
         const tables = await prisma_1.prisma.mesa.findMany({
             where: {
                 comandas: {
@@ -92,7 +125,7 @@ router.post('/:id/open', async (req, res) => {
     try {
         const { id } = req.params;
         const mesaId = Number(id);
-        const userId = req.user.id;
+        const userId = req.user.userId;
         const existingComanda = await prisma_1.prisma.comanda.findFirst({
             where: { mesaId, status: 'ABERTA' }
         });
@@ -203,6 +236,60 @@ router.post('/:id/reopen', async (req, res) => {
     }
     catch {
         res.status(500).json({ error: 'Error reopening table' });
+    }
+});
+router.post('/:id/close', (0, auth_1.requireRole)(['ADMIN', 'DONO', 'GERENTE', 'CAIXA']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const mesaId = Number(id);
+        // Find open comanda
+        const comanda = await prisma_1.prisma.comanda.findFirst({
+            where: { mesaId, status: 'ABERTA' },
+            include: {
+                pedidos: {
+                    include: {
+                        itens: {
+                            include: {
+                                produto: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        if (!comanda) {
+            res.status(404).json({ error: 'Nenhuma comanda aberta para esta mesa' });
+            return;
+        }
+        // Calculate total
+        let subtotal = 0;
+        comanda.pedidos.forEach(p => {
+            p.itens.forEach(i => {
+                subtotal += i.quantidade * i.produto.preco;
+            });
+        });
+        const servico = subtotal * 0.1;
+        const totalFinal = subtotal + servico;
+        // Close comanda and free table in a transaction
+        await prisma_1.prisma.$transaction([
+            prisma_1.prisma.comanda.update({
+                where: { id: comanda.id },
+                data: {
+                    status: 'FECHADA',
+                    fechadaEm: new Date(),
+                    total: totalFinal
+                }
+            }),
+            prisma_1.prisma.mesa.update({
+                where: { id: mesaId },
+                data: { status: 'LIVRE' }
+            })
+        ]);
+        res.json({ success: true, total: totalFinal });
+    }
+    catch (error) {
+        console.error('Error closing table:', error);
+        res.status(500).json({ error: 'Error closing table' });
     }
 });
 exports.default = router;

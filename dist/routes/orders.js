@@ -55,10 +55,18 @@ router.post('/', (0, validate_1.validate)(order_1.createOrderSchema), async (req
                     status: 'PENDENTE'
                 }
             });
-            const sector = produto.categoria?.setor || (produto.isDrink ? 'BAR' : 'COZINHA');
-            if (!productionOrders[sector])
-                productionOrders[sector] = [];
-            productionOrders[sector].push(pedidoItem.id);
+            let sector = null;
+            if (produto.isDrink) {
+                sector = 'BAR';
+            }
+            else if (produto.isFood) {
+                sector = 'COZINHA';
+            }
+            if (sector) {
+                if (!productionOrders[sector])
+                    productionOrders[sector] = [];
+                productionOrders[sector].push(pedidoItem.id);
+            }
         }
         await prisma_1.prisma.comanda.update({
             where: { id: comanda.id },

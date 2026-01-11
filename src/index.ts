@@ -24,6 +24,10 @@ app.use(cors({
 app.use(express.json())
 app.use(cookieParser())
 
+app.get('/', (req, res) => {
+  res.json({ message: 'API Rei do Pirão is running', timestamp: new Date() })
+})
+
 app.use('/auth', authRoutes)
 app.use('/users', usersRoutes)
 app.use('/products', productsRoutes)
