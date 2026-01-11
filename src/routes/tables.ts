@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { prisma } from '../lib/prisma'
 import { authenticate, requireRole } from '../middleware/auth'
 import { printerService } from '../services/PrinterService'
+import { getIO } from '../lib/socket'
 
 const router = Router()
 router.use(authenticate)
@@ -392,6 +393,12 @@ router.post('/:id/transfer', async (req, res) => {
         data: { mesaId: targetId }
       })
     ])
+
+    try {
+      getIO().emit('tables-updated')
+    } catch (e) {
+      console.error('Socket emit error:', e)
+    }
 
     res.json({ success: true })
   } catch (error) {
