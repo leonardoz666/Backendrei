@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
       where: { status: { not: 'PRONTO' } },
       include: {
         pedido: { include: { comanda: { include: { mesa: true } } } },
-        itens: { include: { pedidoItem: { include: { produto: true } } } }
+        itens: { include: { pedidoItem: { include: { produto: { select: { nome: true } } } } } }
       },
       orderBy: { criadaEm: 'asc' }
     })

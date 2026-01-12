@@ -40,6 +40,9 @@ model Comanda {
   fechadaEm   DateTime?
   pedidos     Pedido[]
   pagamentos  Pagamento[]
+
+  @@index([status])
+  @@index([mesaId])
 }
 
 model Pedido {
@@ -98,7 +101,10 @@ model OrdemProducao {
   status       String      @default("RECEBIDO") // RECEBIDO | EM_PREPARO | PRONTO
   criadaEm     DateTime    @default(now())
   finalizadaEm DateTime?
-  itens        OrdemItem[]
+  itens       OrdemItem[]
+
+  @@index([status])
+  @@index([setor])
 }
 
 model OrdemItem {

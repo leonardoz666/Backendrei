@@ -121,6 +121,9 @@ export class OrderService {
     // --- Post-Transaction (Side Effects: Socket & Print) ---
     this.handlePostCreationEffects(result.createdOrders, userName)
 
+    // Notify table update (so other waiters viewing the table see the new items)
+    getIO().emit('table:updated', { mesaId: result.comanda.mesaId })
+
     return { success: true, comandaId: result.comanda.id, pedidoId: result.pedido.id }
   }
 

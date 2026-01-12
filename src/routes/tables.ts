@@ -102,7 +102,12 @@ router.get('/:id', async (req, res) => {
               include: {
                 itens: {
                   include: {
-                    produto: true
+                    produto: {
+                      select: {
+                        nome: true,
+                        preco: true
+                      }
+                    }
                   }
                 }
               },
