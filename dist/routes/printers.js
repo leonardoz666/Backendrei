@@ -4,6 +4,7 @@ const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
 const auth_1 = require("../middleware/auth");
 const zod_1 = require("zod");
+const PrinterService_1 = require("../services/PrinterService");
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate);
 router.use((0, auth_1.requireRole)(['DONO']));
@@ -41,6 +42,28 @@ router.put('/:id', async (req, res) => {
     catch (error) {
         console.error('Error updating printer:', error);
         res.status(500).json({ error: 'Error updating printer' });
+    }
+});
+// Test printer
+router.post('/:id/test', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const printer = await prisma_1.prisma.printerConfig.findUnique({ where: { id: Number(id) } });
+        if (!printer) {
+            res.status(404).json({ error: 'Printer not found' });
+            return;
+        }
+        const success = await PrinterService_1.printerService.testPrinter(printer.ip, printer.port);
+        if (success) {
+            res.json({ message: 'Teste enviado com sucesso!' });
+        }
+        else {
+            res.status(500).json({ error: 'Falha ao conectar com a impressora' });
+        }
+    }
+    catch (error) {
+        console.error('Error testing printer:', error);
+        res.status(500).json({ error: 'Erro ao testar impressora' });
     }
 });
 exports.default = router;

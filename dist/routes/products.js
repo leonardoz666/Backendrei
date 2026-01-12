@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
 // Create product (Admin/Dono only)
 router.post('/', (0, auth_1.requireRole)(['ADMIN', 'DONO']), upload_1.upload.single('foto'), async (req, res) => {
     try {
-        const { nome, preco, categoriaId, ativo, tipoOpcao, sabores, isDrink, isFood, favorito } = req.body;
+        const { nome, preco, categoriaId, ativo, tipoOpcao, sabores, isDrink, isFood, favorito, permitirObservacao, permiteGeloLimao } = req.body;
         if (!nome) {
             res.status(400).json({ error: 'Nome do produto é obrigatório' });
             return;
@@ -43,7 +43,9 @@ router.post('/', (0, auth_1.requireRole)(['ADMIN', 'DONO']), upload_1.upload.sin
                 sabores: typeof sabores === 'string' && sabores.startsWith('[') ? sabores : (typeof sabores === 'object' ? JSON.stringify(sabores) : sabores),
                 isDrink: isDrink === 'true' || isDrink === true,
                 isFood: isFood === undefined ? true : (isFood === 'true' || isFood === true),
-                favorito: favorito === 'true' || favorito === true
+                favorito: favorito === 'true' || favorito === true,
+                permitirObservacao: permitirObservacao === undefined ? true : (permitirObservacao === 'true' || permitirObservacao === true),
+                permiteGeloLimao: permiteGeloLimao === 'true' || permiteGeloLimao === true
             },
             include: { categoria: true }
         });
@@ -67,6 +69,8 @@ router.put('/:id', (0, auth_1.requireRole)(['ADMIN', 'DONO']), upload_1.upload.s
         const isDrink = req.body.isDrink === 'true' || req.body.isDrink === true;
         const isFood = req.body.isFood === undefined ? undefined : (req.body.isFood === 'true' || req.body.isFood === true);
         const favorito = req.body.favorito === 'true' || req.body.favorito === true;
+        const permitirObservacao = req.body.permitirObservacao === undefined ? undefined : (req.body.permitirObservacao === 'true' || req.body.permitirObservacao === true);
+        const permiteGeloLimao = req.body.permiteGeloLimao === undefined ? undefined : (req.body.permiteGeloLimao === 'true' || req.body.permiteGeloLimao === true);
         let foto = req.body.foto;
         if (req.file) {
             foto = `/uploads/${req.file.filename}`;
@@ -83,7 +87,9 @@ router.put('/:id', (0, auth_1.requireRole)(['ADMIN', 'DONO']), upload_1.upload.s
                 sabores: typeof sabores === 'string' && sabores.startsWith('[') ? sabores : (typeof sabores === 'object' ? JSON.stringify(sabores) : sabores),
                 isDrink,
                 isFood,
-                favorito
+                favorito,
+                permitirObservacao,
+                permiteGeloLimao
             },
             include: { categoria: true }
         });

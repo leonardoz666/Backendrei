@@ -4,9 +4,19 @@ exports.getIO = exports.initSocket = void 0;
 const socket_io_1 = require("socket.io");
 let io;
 const initSocket = (httpServer) => {
+    const allowedOrigins = [
+        'http://localhost:3000',
+        'https://frontendrei.vercel.app'
+    ];
+    if (process.env.FRONTEND_URL) {
+        const envOrigin = process.env.FRONTEND_URL;
+        if (!allowedOrigins.includes(envOrigin)) {
+            allowedOrigins.push(envOrigin);
+        }
+    }
     io = new socket_io_1.Server(httpServer, {
         cors: {
-            origin: 'http://localhost:3000',
+            origin: allowedOrigins,
             credentials: true
         }
     });

@@ -7,6 +7,7 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const http_1 = require("http");
 const auth_1 = __importDefault(require("./routes/auth"));
 const users_1 = __importDefault(require("./routes/users"));
 const products_1 = __importDefault(require("./routes/products"));
@@ -15,16 +16,31 @@ const orders_1 = __importDefault(require("./routes/orders"));
 const kitchen_1 = __importDefault(require("./routes/kitchen"));
 const tables_1 = __importDefault(require("./routes/tables"));
 const printers_1 = __importDefault(require("./routes/printers"));
+const errorHandler_1 = require("./middleware/errorHandler");
+const logger_1 = __importDefault(require("./lib/logger"));
+const socket_1 = require("./lib/socket");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
+const httpServer = (0, http_1.createServer)(app);
 const PORT = process.env.PORT || 4000;
+const allowedOrigins = [
+    'http://localhost:3000',
+    'https://frontendrei.vercel.app'
+];
+if (process.env.FRONTEND_URL) {
+    const envOrigin = process.env.FRONTEND_URL;
+    if (!allowedOrigins.includes(envOrigin)) {
+        allowedOrigins.push(envOrigin);
+    }
+}
 app.use((0, cors_1.default)({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true
 }));
 app.use(express_1.default.json());
 app.use((0, cookie_parser_1.default)());
 app.get('/', (req, res) => {
+    logger_1.default.info('Health check request');
     res.json({ message: 'API Rei do Pirão is running', timestamp: new Date() });
 });
 app.use('/auth', auth_1.default);
@@ -35,10 +51,8 @@ app.use('/orders', orders_1.default);
 app.use('/kitchen', kitchen_1.default);
 app.use('/tables', tables_1.default);
 app.use('/printers', printers_1.default);
-app.use((err, req, res, next) => {
-    console.error('Global error handler:', err);
-    res.status(500).json({ error: 'Internal Server Error', details: err.message });
-});
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+app.use(errorHandler_1.errorHandler);
+(0, socket_1.initSocket)(httpServer);
+httpServer.listen(PORT, () => {
+    logger_1.default.info(`Server running on http://localhost:${PORT}`);
 });

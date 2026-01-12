@@ -4,6 +4,7 @@ const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
 const auth_1 = require("../middleware/auth");
 const PrinterService_1 = require("../services/PrinterService");
+const socket_1 = require("../lib/socket");
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate);
 // Create table (Admin/Dono only)
@@ -100,7 +101,12 @@ router.get('/:id', async (req, res) => {
                             include: {
                                 itens: {
                                     include: {
-                                        produto: true
+                                        produto: {
+                                            select: {
+                                                nome: true,
+                                                preco: true
+                                            }
+                                        }
                                     }
                                 }
                             },
@@ -126,6 +132,10 @@ router.post('/:id/open', async (req, res) => {
         const { id } = req.params;
         const mesaId = Number(id);
         const userId = req.user.userId;
+        if (!userId) {
+            res.status(401).json({ error: 'User ID not found in session' });
+            return;
+        }
         const existingComanda = await prisma_1.prisma.comanda.findFirst({
             where: { mesaId, status: 'ABERTA' }
         });
@@ -290,6 +300,82 @@ router.post('/:id/close', (0, auth_1.requireRole)(['ADMIN', 'DONO', 'GERENTE', '
     catch (error) {
         console.error('Error closing table:', error);
         res.status(500).json({ error: 'Error closing table' });
+    }
+});
+router.post('/:id/transfer', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { targetTableId } = req.body;
+        const sourceTableId = Number(id);
+        const targetId = Number(targetTableId);
+        if (!targetId) {
+            res.status(400).json({ error: 'Target table ID is required' });
+            return;
+        }
+        // Find source table and open comanda
+        const sourceTable = await prisma_1.prisma.mesa.findUnique({
+            where: { id: sourceTableId },
+            include: {
+                comandas: {
+                    where: { status: 'ABERTA' }
+                }
+            }
+        });
+        if (!sourceTable) {
+            res.status(404).json({ error: 'Source table not found' });
+            return;
+        }
+        if (sourceTable.comandas.length === 0) {
+            res.status(400).json({ error: 'Source table has no open comanda' });
+            return;
+        }
+        const comanda = sourceTable.comandas[0];
+        // Find target table
+        const targetTable = await prisma_1.prisma.mesa.findUnique({
+            where: { id: targetId },
+            include: {
+                comandas: {
+                    where: { status: 'ABERTA' }
+                }
+            }
+        });
+        if (!targetTable) {
+            res.status(404).json({ error: 'Target table not found' });
+            return;
+        }
+        if (targetTable.comandas.length > 0) {
+            res.status(400).json({ error: 'Target table is already occupied' });
+            return;
+        }
+        // Perform transfer
+        await prisma_1.prisma.$transaction([
+            // Update source table to LIVRE
+            prisma_1.prisma.mesa.update({
+                where: { id: sourceTableId },
+                data: { status: 'LIVRE' }
+            }),
+            // Update target table to OCUPADA
+            prisma_1.prisma.mesa.update({
+                where: { id: targetId },
+                data: { status: 'OCUPADA' }
+            }),
+            // Update comanda to point to target table
+            prisma_1.prisma.comanda.update({
+                where: { id: comanda.id },
+                data: { mesaId: targetId }
+            })
+        ]);
+        try {
+            (0, socket_1.getIO)().emit('tables-updated');
+        }
+        catch (e) {
+            console.error('Socket emit error:', e);
+        }
+        res.json({ success: true });
+    }
+    catch (error) {
+        console.error('Error transferring table:', error);
+        res.status(500).json({ error: 'Error transferring table' });
     }
 });
 exports.default = router;
