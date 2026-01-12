@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
 // Create product (Admin/Dono only)
 router.post('/', requireRole(['ADMIN', 'DONO']), upload.single('foto'), async (req: Request, res: Response) => {
   try {
-    const { nome, preco, categoriaId, ativo, tipoOpcao, sabores, isDrink, isFood, favorito } = req.body
+    const { nome, preco, categoriaId, ativo, tipoOpcao, sabores, isDrink, isFood, favorito, permitirObservacao, permiteGeloLimao } = req.body
     
     if (!nome) {
       res.status(400).json({ error: 'Nome do produto é obrigatório' })
@@ -46,7 +46,9 @@ router.post('/', requireRole(['ADMIN', 'DONO']), upload.single('foto'), async (r
         sabores: typeof sabores === 'string' && sabores.startsWith('[') ? sabores : (typeof sabores === 'object' ? JSON.stringify(sabores) : sabores),
         isDrink: isDrink === 'true' || isDrink === true,
         isFood: isFood === undefined ? true : (isFood === 'true' || isFood === true),
-        favorito: favorito === 'true' || favorito === true
+        favorito: favorito === 'true' || favorito === true,
+        permitirObservacao: permitirObservacao === undefined ? true : (permitirObservacao === 'true' || permitirObservacao === true),
+        permiteGeloLimao: permiteGeloLimao === 'true' || permiteGeloLimao === true
       } as any,
       include: { categoria: true }
     })
@@ -71,6 +73,8 @@ router.put('/:id', requireRole(['ADMIN', 'DONO']), upload.single('foto'), async 
     const isDrink = req.body.isDrink === 'true' || req.body.isDrink === true
     const isFood = req.body.isFood === undefined ? undefined : (req.body.isFood === 'true' || req.body.isFood === true)
     const favorito = req.body.favorito === 'true' || req.body.favorito === true
+    const permitirObservacao = req.body.permitirObservacao === undefined ? undefined : (req.body.permitirObservacao === 'true' || req.body.permitirObservacao === true)
+    const permiteGeloLimao = req.body.permiteGeloLimao === undefined ? undefined : (req.body.permiteGeloLimao === 'true' || req.body.permiteGeloLimao === true)
 
     let foto = req.body.foto
     if (req.file) {
@@ -89,7 +93,9 @@ router.put('/:id', requireRole(['ADMIN', 'DONO']), upload.single('foto'), async 
         sabores: typeof sabores === 'string' && sabores.startsWith('[') ? sabores : (typeof sabores === 'object' ? JSON.stringify(sabores) : sabores),
         isDrink,
         isFood,
-        favorito
+        favorito,
+        permitirObservacao,
+        permiteGeloLimao
       } as any,
       include: { categoria: true }
     })

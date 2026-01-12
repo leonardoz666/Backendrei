@@ -76,6 +76,8 @@ model Produto {
   sabores     String?
   isDrink     Boolean       @default(false)
   isFood      Boolean       @default(true)
+  permitirObservacao Boolean @default(true)
+  permiteGeloLimao Boolean  @default(false)
   favorito    Boolean       @default(false)
   ultimoUso   DateTime?     @default(now())
   itens       PedidoItem[]
