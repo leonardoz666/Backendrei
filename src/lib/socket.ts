@@ -4,9 +4,21 @@ import { Server as HttpServer } from 'http'
 let io: Server
 
 export const initSocket = (httpServer: HttpServer) => {
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://frontendrei.vercel.app'
+  ]
+
+  if (process.env.FRONTEND_URL) {
+    const envOrigin = process.env.FRONTEND_URL
+    if (!allowedOrigins.includes(envOrigin)) {
+      allowedOrigins.push(envOrigin)
+    }
+  }
+
   io = new Server(httpServer, {
     cors: {
-      origin: 'http://localhost:3000',
+      origin: allowedOrigins,
       credentials: true
     }
   })

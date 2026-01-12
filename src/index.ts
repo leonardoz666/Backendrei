@@ -3,6 +3,7 @@ import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import dotenv from 'dotenv'
 import path from 'path'
+import { createServer } from 'http'
 import authRoutes from './routes/auth'
 import usersRoutes from './routes/users'
 import productsRoutes from './routes/products'
@@ -13,14 +14,28 @@ import tablesRoutes from './routes/tables'
 import printersRoutes from './routes/printers'
 import { errorHandler } from './middleware/errorHandler'
 import logger from './lib/logger'
+import { initSocket } from './lib/socket'
 
 dotenv.config()
 
 const app = express()
+const httpServer = createServer(app)
 const PORT = process.env.PORT || 4000
 
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://frontendrei.vercel.app'
+]
+
+if (process.env.FRONTEND_URL) {
+  const envOrigin = process.env.FRONTEND_URL
+  if (!allowedOrigins.includes(envOrigin)) {
+    allowedOrigins.push(envOrigin)
+  }
+}
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: allowedOrigins,
   credentials: true
 }))
 app.use(express.json())
@@ -42,6 +57,8 @@ app.use('/printers', printersRoutes)
 
 app.use(errorHandler)
 
-app.listen(PORT, () => {
+initSocket(httpServer)
+
+httpServer.listen(PORT, () => {
   logger.info(`Server running on http://localhost:${PORT}`)
 })
