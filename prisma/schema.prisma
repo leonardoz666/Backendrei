@@ -80,6 +80,8 @@ model Produto {
   permiteGeloLimao Boolean  @default(false)
   favorito    Boolean       @default(false)
   ultimoUso   DateTime?     @default(now())
+  estoque     Int?          // Se null, estoque é infinito
+  esgotado    Boolean       @default(false) // Toggle manual para marcar como indisponível
   itens       PedidoItem[]
 }
 

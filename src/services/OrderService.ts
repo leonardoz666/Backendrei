@@ -59,8 +59,24 @@ export class OrderService {
         })
         if (!produto) continue
 
+        // Check stock
+        if (produto.esgotado) {
+          throw new AppError(`Produto ${produto.nome} está esgotado`, 400)
+        }
+
+        if (produto.estoque !== null) {
+          if (produto.estoque < item.quantidade) {
+            throw new AppError(`Estoque insuficiente para ${produto.nome}. Restam: ${produto.estoque}`, 400)
+          }
+          // Decrement stock
+          await tx.produto.update({
+            where: { id: produto.id },
+            data: { estoque: { decrement: item.quantidade } }
+          })
+        }
+
         totalPedido += produto.preco * item.quantidade
-        
+
         const pedidoItem = await tx.pedidoItem.create({
           data: {
             pedidoId: pedido.id,
@@ -74,7 +90,7 @@ export class OrderService {
         let sector = null
         if (produto.isDrink) sector = 'BAR'
         else if (produto.isFood) sector = 'COZINHA'
-        
+
         if (sector) {
           productionOrdersData.push({ sector, pedidoItemId: pedidoItem.id })
         }
@@ -152,7 +168,7 @@ export class OrderService {
       if (fullOrder) {
         try {
           getIO().emit('new-kitchen-order', fullOrder)
-          
+
           printerService.printOrderTicket(fullOrder.setor as 'COZINHA' | 'BAR', {
             mesa: fullOrder.pedido.comanda.mesa.numero,
             garcom: userName || 'Garçom',
@@ -183,9 +199,9 @@ export class OrderService {
       })
 
       if (!item) throw new AppError('Item not found', 404)
-      
+
       if (item.status === 'CANCELADO') {
-          throw new AppError('Item already cancelled', 400)
+        throw new AppError('Item already cancelled', 400)
       }
 
       // Update item status
@@ -200,7 +216,7 @@ export class OrderService {
         where: { id: item.pedido.comandaId },
         data: { total: { decrement: totalReduction } }
       })
-      
+
       return { mesaId: item.pedido.comanda.mesaId }
     })
 
