@@ -25,6 +25,11 @@ type BillData = {
   subtotal: number
   servico?: number
   totalFinal: number
+  pagamento?: {
+    tipo: string
+    valorPago?: number
+    troco?: number
+  }
 }
 
 class PrinterService {
@@ -46,7 +51,7 @@ class PrinterService {
     try {
       console.log(`[PRINTER] Testando conexão com ${ip}:${port}...`)
       const printer = await this.getPrinter(ip, port)
-      
+
       const isConnected = await printer.isPrinterConnected()
       if (!isConnected) {
         console.warn(`[PRINTER] Impressora ${ip} não respondeu ao teste.`)
@@ -63,7 +68,7 @@ class PrinterService {
       printer.newLine()
       printer.println(new Date().toLocaleString('pt-BR'))
       printer.cut()
-      
+
       await printer.execute()
       return true
     } catch (error) {
@@ -86,7 +91,7 @@ class PrinterService {
 
     try {
       const printer = await this.getPrinter(config.ip, config.port)
-      
+
       const isConnected = await printer.isPrinterConnected()
       if (!isConnected) {
         console.warn(`[PRINTER] Impressora ${config.name} não respondeu.`)
@@ -98,13 +103,13 @@ class PrinterService {
       printer.setTextSize(1, 1)
       printer.println(`SETOR: ${sector}`)
       printer.newLine()
-      
+
       printer.setTextSize(0, 0)
       printer.println(`MESA: ${data.mesa}  |  PEDIDO: #${data.pedidoId}`)
       printer.println(`GARÇOM: ${data.garcom}`)
       printer.println(`DATA: ${data.data.toLocaleString('pt-BR')}`)
       printer.drawLine()
-      
+
       printer.alignLeft()
       data.itens.forEach(item => {
         printer.bold(true)
@@ -115,10 +120,10 @@ class PrinterService {
         }
         printer.newLine()
       })
-      
+
       printer.drawLine()
       printer.cut()
-      
+
       await printer.execute()
       console.log(`[PRINTER] Impressão enviada com sucesso para ${config.name}`)
 
@@ -178,7 +183,7 @@ class PrinterService {
       })
 
       printer.drawLine()
-      
+
       printer.alignRight()
       printer.println(`SUBTOTAL: R$ ${data.subtotal.toFixed(2)}`)
       if (data.servico) {
@@ -187,14 +192,26 @@ class PrinterService {
       printer.bold(true)
       printer.println(`TOTAL: R$ ${data.totalFinal.toFixed(2)}`)
       printer.bold(false)
-      
+
+      if (data.pagamento) {
+        printer.newLine()
+        printer.alignLeft()
+        printer.println(`FORMA PAGTO: ${data.pagamento.tipo}`)
+        if (data.pagamento.valorPago) {
+          printer.println(`VALOR PAGO: R$ ${data.pagamento.valorPago.toFixed(2)}`)
+        }
+        if (data.pagamento.troco) {
+          printer.println(`TROCO: R$ ${data.pagamento.troco.toFixed(2)}`)
+        }
+      }
+
       printer.newLine()
       printer.alignCenter()
       printer.println("Obrigado pela preferência!")
       printer.println("Volte sempre!")
-      
+
       printer.cut()
-      
+
       await printer.execute()
       console.log(`[PRINTER] Conta impressa com sucesso na ${config.name}`)
 

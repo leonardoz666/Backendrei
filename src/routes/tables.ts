@@ -11,7 +11,7 @@ router.use(authenticate)
 router.post('/', requireRole(['ADMIN', 'DONO']), async (req, res) => {
   try {
     let { numero } = req.body
-    
+
     if (numero) {
       // Check if table number already exists
       const existing = await prisma.mesa.findUnique({
@@ -28,7 +28,7 @@ router.post('/', requireRole(['ADMIN', 'DONO']), async (req, res) => {
       })
       numero = (highestMesa?.numero || 0) + 1
     }
-    
+
     const mesa = await prisma.mesa.create({
       data: {
         numero: Number(numero),
@@ -137,14 +137,14 @@ router.post('/:id/open', async (req, res) => {
     const userId = (req as any).user.userId
 
     if (!userId) {
-        res.status(401).json({ error: 'User ID not found in session' })
-        return
+      res.status(401).json({ error: 'User ID not found in session' })
+      return
     }
 
     const existingComanda = await prisma.comanda.findFirst({
       where: { mesaId, status: 'ABERTA' }
     })
-    
+
     if (existingComanda) {
       return res.json({ success: true, message: 'Table already open' })
     }
@@ -208,11 +208,11 @@ router.post('/:id/print-partial', async (req, res) => {
 
     // Calculate bill details
     const comanda = table.comandas[0]
-    const itemsMap = new Map<number, { 
-      produto: string, 
-      quantidade: number, 
+    const itemsMap = new Map<number, {
+      produto: string,
+      quantidade: number,
       precoUnitario: number,
-      total: number 
+      total: number
     }>()
 
     let subtotal = 0
@@ -226,15 +226,15 @@ router.post('/:id/print-partial', async (req, res) => {
           precoUnitario: i.produto.preco,
           total: 0
         }
-        
+
         current.quantidade += i.quantidade
         current.total += i.quantidade * i.produto.preco
         itemsMap.set(i.produtoId, current)
-        
+
         subtotal += i.quantidade * i.produto.preco
       })
     })
-    
+
     const items = Array.from(itemsMap.values())
     const servico = subtotal * 0.1 // 10% service charge
     const totalFinal = subtotal + servico
@@ -248,9 +248,9 @@ router.post('/:id/print-partial', async (req, res) => {
       servico,
       totalFinal
     })
-    
+
     console.log(`[PRINTER] Printing partial bill for Table ${table.numero}`)
-    
+
     res.json({ success: true, message: 'Partial bill sent to printer' })
   } catch (error) {
     console.error('Error printing partial bill:', error)
@@ -275,7 +275,7 @@ router.post('/:id/close', requireRole(['ADMIN', 'DONO', 'GERENTE', 'CAIXA']), as
   try {
     const { id } = req.params
     const mesaId = Number(id)
-    
+
     // Find open comanda
     const comanda = await prisma.comanda.findFirst({
       where: { mesaId, status: 'ABERTA' },
@@ -304,7 +304,7 @@ router.post('/:id/close', requireRole(['ADMIN', 'DONO', 'GERENTE', 'CAIXA']), as
         subtotal += i.quantidade * i.produto.preco
       })
     })
-    
+
     const servico = subtotal * 0.1
     const totalFinal = subtotal + servico
 
@@ -417,4 +417,177 @@ router.post('/:id/transfer', async (req, res) => {
   }
 })
 
+// Get order history for a table session
+router.get('/:id/history', async (req, res) => {
+  try {
+    const { id } = req.params
+    const mesaId = Number(id)
+
+    // Find current open comanda
+    const comanda = await prisma.comanda.findFirst({
+      where: { mesaId, status: 'ABERTA' },
+      include: {
+        pedidos: {
+          include: {
+            itens: {
+              include: {
+                produto: {
+                  select: {
+                    nome: true,
+                    preco: true
+                  }
+                }
+              }
+            }
+          },
+          orderBy: { criadoEm: 'desc' }
+        }
+      }
+    })
+
+    if (!comanda) {
+      res.json([])
+      return
+    }
+
+    // Format response
+    const orders = comanda.pedidos.map(pedido => ({
+      id: pedido.id,
+      criadoEm: pedido.criadoEm,
+      status: pedido.status,
+      itens: pedido.itens.map(item => ({
+        id: item.id,
+        nome: item.produto.nome,
+        quantidade: item.quantidade,
+        preco: item.produto.preco,
+        observacao: item.observacao,
+        status: item.status,
+        horario: new Date(pedido.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      }))
+    }))
+
+    res.json(orders)
+  } catch (error) {
+    console.error('Error fetching table history:', error)
+    res.status(500).json({ error: 'Error fetching table history' })
+  }
+})
+
+// Process payment and close table
+router.post('/:id/payment', requireRole(['ADMIN', 'DONO', 'GERENTE', 'CAIXA']), async (req, res) => {
+  try {
+    const { id } = req.params
+    const { tipo, valor, troco } = req.body
+    const mesaId = Number(id)
+
+    // Find open comanda with items
+    const comanda = await prisma.comanda.findFirst({
+      where: { mesaId, status: 'ABERTA' },
+      include: {
+        mesa: true,
+        pedidos: {
+          include: {
+            itens: {
+              include: {
+                produto: true
+              }
+            }
+          }
+        }
+      }
+    })
+
+    if (!comanda) {
+      res.status(404).json({ error: 'No open comanda found' })
+      return
+    }
+
+    // Calculate Bill Data for Printing
+    const itemsMap = new Map<number, {
+      produto: string,
+      quantidade: number,
+      precoUnitario: number,
+      total: number
+    }>()
+
+    let subtotal = 0
+
+    comanda.pedidos.forEach(p => {
+      p.itens.forEach(i => {
+        if (i.status === 'CANCELADO') return
+        const current = itemsMap.get(i.produtoId) || {
+          produto: i.produto.nome,
+          quantidade: 0,
+          precoUnitario: i.produto.preco,
+          total: 0
+        }
+
+        current.quantidade += i.quantidade
+        current.total += i.quantidade * i.produto.preco
+        itemsMap.set(i.produtoId, current)
+
+        subtotal += i.quantidade * i.produto.preco
+      })
+    })
+
+    const items = Array.from(itemsMap.values())
+    const servico = subtotal * 0.1 // 10% service charge
+    const totalFinal = subtotal + servico
+
+    // Create payment record and close everything in a transaction
+    await prisma.$transaction([
+      // Create payment
+      prisma.pagamento.create({
+        data: {
+          comandaId: comanda.id,
+          tipo,
+          valor,
+          status: 'PAGO'
+        }
+      }),
+      // Close comanda
+      prisma.comanda.update({
+        where: { id: comanda.id },
+        data: {
+          status: 'FECHADA',
+          fechadaEm: new Date(),
+          total: valor
+        }
+      }),
+      // Free table
+      prisma.mesa.update({
+        where: { id: mesaId },
+        data: { status: 'LIVRE' }
+      })
+    ])
+
+    try {
+      getIO().emit('tables-updated')
+    } catch (e) {
+      console.error('Socket emit error:', e)
+    }
+
+    // Print Bill Async
+    printerService.printBill({
+      mesa: comanda.mesa.numero,
+      data: new Date(),
+      itens: items,
+      subtotal,
+      servico,
+      totalFinal,
+      pagamento: {
+        tipo,
+        valorPago: (tipo === 'DINHEIRO' && troco > 0) ? (valor + troco) : valor,
+        troco: (tipo === 'DINHEIRO' && troco > 0) ? troco : 0
+      }
+    }).catch(err => console.error('Error printing bill on payment:', err))
+
+    res.json({ success: true, troco: troco || 0 })
+  } catch (error) {
+    console.error('Error processing payment:', error)
+    res.status(500).json({ error: 'Error processing payment' })
+  }
+})
+
 export default router
+

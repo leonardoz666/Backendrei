@@ -12,6 +12,7 @@ import ordersRoutes from './routes/orders'
 import kitchenRoutes from './routes/kitchen'
 import tablesRoutes from './routes/tables'
 import printersRoutes from './routes/printers'
+import dashboardRoutes from './routes/dashboard'
 import { errorHandler } from './middleware/errorHandler'
 import logger from './lib/logger'
 import { initSocket } from './lib/socket'
@@ -54,6 +55,7 @@ app.use('/orders', ordersRoutes)
 app.use('/kitchen', kitchenRoutes)
 app.use('/tables', tablesRoutes)
 app.use('/printers', printersRoutes)
+app.use('/dashboard', dashboardRoutes)
 
 app.use(errorHandler)
 
@@ -62,3 +64,4 @@ initSocket(httpServer)
 httpServer.listen(PORT, () => {
   logger.info(`Server running on http://localhost:${PORT}`)
 })
+

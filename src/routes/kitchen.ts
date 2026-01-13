@@ -31,7 +31,7 @@ router.put('/', async (req, res) => {
       return
     }
     const updated = await prisma.ordemProducao.update({ where: { id }, data: { status } })
-    
+
     try {
       getIO().emit('kitchen-order-updated', { id: updated.id, status: updated.status })
     } catch (e) {
@@ -41,6 +41,52 @@ router.put('/', async (req, res) => {
     res.json({ success: true })
   } catch {
     res.status(500).json({ error: 'Error updating order' })
+  }
+})
+
+import { printerService } from '../services/PrinterService'
+
+// Reprint order ticket
+router.post('/reprint/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const orderId = Number(id)
+
+    const order = await prisma.ordemProducao.findUnique({
+      where: { id: orderId },
+      include: {
+        pedido: {
+          include: {
+            garcom: true,
+            comanda: { include: { mesa: true } }
+          }
+        },
+        itens: { include: { pedidoItem: { include: { produto: true } } } }
+      }
+    })
+
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' })
+      return
+    }
+
+    // Call Printer Service
+    printerService.printOrderTicket(order.setor as 'COZINHA' | 'BAR', {
+      mesa: order.pedido.comanda.mesa.numero,
+      garcom: order.pedido.garcom?.nome || 'Garçom',
+      pedidoId: order.pedido.id,
+      data: order.criadaEm,
+      itens: order.itens.map(i => ({
+        quantidade: i.pedidoItem.quantidade,
+        produto: i.pedidoItem.produto.nome,
+        observacao: i.pedidoItem.observacao
+      }))
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Error reprinting:', error)
+    res.status(500).json({ error: 'Error on reprinting' })
   }
 })
 
