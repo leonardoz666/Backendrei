@@ -128,7 +128,7 @@ const getTopProducts = async (startDate: Date, endDate: Date, limit = 10) => {
 
 // Get hourly sales for today
 const getHourlySales = async (todayStart: Date, todayEnd: Date) => {
-    const hours = []
+    const hours: { hour: string; total: number }[] = []
     for (let h = 10; h <= 22; h++) {
         hours.push({ hour: `${h}h`, total: 0 })
     }
